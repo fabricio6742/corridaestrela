@@ -26,8 +26,8 @@
   }
   #info {
     display: flex;
-    gap: 24px;
-    font-size: 1rem;
+    gap: 20px;
+    font-size: 0.95rem;
     background: rgba(0,0,0,0.25);
     padding: 6px 16px;
     border-radius: 8px;
@@ -55,6 +55,7 @@
   #controls {
     font-size: 0.85rem;
     opacity: 0.8;
+    text-align: center;
   }
   button {
     background: #ffb347;
@@ -73,22 +74,23 @@
     display: none;
     position: absolute;
     inset: 0;
-    background: rgba(10, 15, 30, 0.92);
+    background: rgba(10, 15, 30, 0.94);
     border-radius: 10px;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 14px;
-    padding: 20px;
+    gap: 10px;
+    padding: 16px;
     text-align: center;
+    overflow-y: auto;
   }
   #shopOverlay h2 {
     margin: 0;
     color: #ffd700;
-    font-size: 1.4rem;
+    font-size: 1.3rem;
   }
   #shopWallet {
-    font-size: 1rem;
+    font-size: 0.95rem;
     background: rgba(255,255,255,0.1);
     padding: 4px 14px;
     border-radius: 20px;
@@ -97,16 +99,18 @@
     background: rgba(255,255,255,0.08);
     border: 1px solid rgba(255,255,255,0.2);
     border-radius: 10px;
-    padding: 14px 18px;
+    padding: 10px 16px;
     display: flex;
     align-items: center;
-    gap: 16px;
-    max-width: 420px;
+    gap: 14px;
+    max-width: 440px;
+    width: 100%;
   }
-  .shop-item .icon { font-size: 2rem; }
+  .shop-item .icon { font-size: 1.7rem; }
   .shop-item .details { text-align: left; flex: 1; }
-  .shop-item .details .name { font-weight: bold; }
-  .shop-item .details .desc { font-size: 0.8rem; opacity: 0.8; }
+  .shop-item .details .name { font-weight: bold; font-size: 0.9rem; }
+  .shop-item .details .desc { font-size: 0.75rem; opacity: 0.8; }
+  .shop-item button { font-size: 0.8rem; padding: 6px 12px; white-space: nowrap; }
   #shopContinue { margin-top: 6px; }
 </style>
 </head>
@@ -116,13 +120,15 @@
     <div>Moedas da fase: <span id="coins">0</span> / <span id="total">0</span></div>
     <div>Vidas: <span id="lives">5</span></div>
     <div>💰 Carteira: <span id="wallet">0</span></div>
-    <div>Fase: <span id="stageNum">1</span> / <span id="stageTotal">2</span></div>
+    <div>Multiplicador: x<span id="multDisplay">1</span></div>
+    <div>Fase: <span id="stageNum">1</span> / <span id="stageTotal">100</span></div>
   </div>
   <div id="stage">
     <canvas id="game" width="800" height="450"></canvas>
     <div id="shopOverlay">
       <h2>🛒 Loja da Fase</h2>
       <div id="shopWallet">Você tem 💰 <span id="shopWalletAmount">0</span> moedas</div>
+
       <div class="shop-item">
         <div class="icon">👟</div>
         <div class="details">
@@ -131,11 +137,39 @@
         </div>
         <button id="buySpeedBtn">Comprar (💰 <span id="speedCost">3</span>)</button>
       </div>
+
+      <div class="shop-item">
+        <div class="icon">🦘</div>
+        <div class="details">
+          <div class="name">Salto Mais Alto</div>
+          <div class="desc">Aumenta a altura do seu pulo permanentemente.</div>
+        </div>
+        <button id="buyJumpBtn">Comprar (💰 <span id="jumpCost">3</span>)</button>
+      </div>
+
+      <div class="shop-item">
+        <div class="icon">✖️</div>
+        <div class="details">
+          <div class="name">Multiplicador de Moedas</div>
+          <div class="desc">Cada moeda coletada passa a valer mais na carteira.</div>
+        </div>
+        <button id="buyMultBtn">Comprar (💰 <span id="multCost">5</span>)</button>
+      </div>
+
+      <div class="shop-item">
+        <div class="icon">❤️</div>
+        <div class="details">
+          <div class="name">Vida Extra</div>
+          <div class="desc">Adiciona uma vida ao seu personagem.</div>
+        </div>
+        <button id="buyLifeBtn">Comprar (💰 <span id="lifeCost">4</span>)</button>
+      </div>
+
       <button id="shopContinue">Ir para a próxima fase ▶</button>
     </div>
   </div>
   <div id="msg"></div>
-  <div id="controls">Setas ou A/D para mover • Espaço ou seta pra cima para pular • R para reiniciar tudo</div>
+  <div id="controls">Setas ou A/D para mover • Espaço ou seta pra cima para pular • R para reiniciar tudo (apaga o progresso salvo)<br>💾 Seu progresso é salvo automaticamente sempre que você avança de fase.</div>
 
 <script>
 const canvas = document.getElementById('game');
@@ -144,39 +178,57 @@ const coinsEl = document.getElementById('coins');
 const totalEl = document.getElementById('total');
 const livesEl = document.getElementById('lives');
 const walletEl = document.getElementById('wallet');
+const multDisplayEl = document.getElementById('multDisplay');
 const stageNumEl = document.getElementById('stageNum');
 const stageTotalEl = document.getElementById('stageTotal');
 const msgEl = document.getElementById('msg');
 const shopOverlay = document.getElementById('shopOverlay');
 const shopWalletAmount = document.getElementById('shopWalletAmount');
 const buySpeedBtn = document.getElementById('buySpeedBtn');
+const buyJumpBtn = document.getElementById('buyJumpBtn');
+const buyMultBtn = document.getElementById('buyMultBtn');
+const buyLifeBtn = document.getElementById('buyLifeBtn');
 const speedCostEl = document.getElementById('speedCost');
+const jumpCostEl = document.getElementById('jumpCost');
+const multCostEl = document.getElementById('multCost');
+const lifeCostEl = document.getElementById('lifeCost');
 const shopContinueBtn = document.getElementById('shopContinue');
 
 // ----- Configurações de física -----
 const GRAVITY = 0.6;
 const BASE_MOVE_SPEED = 4;
 const SPEED_PER_UPGRADE = 1.2;
-const JUMP_FORCE = -12;
+const BASE_JUMP_FORCE = -12;
+const JUMP_PER_UPGRADE = -1.3;
+const MIN_JUMP_FORCE = -22; // limite pra não ficar absurdo
 const FRICTION = 0.8;
-const SPEED_UPGRADE_BASE_COST = 3;
 
 // ----- Estado do jogo -----
 let keys = {};
 let gameOver = false;
 let win = false;
 let inShop = false;
-let wallet = 0;              // moedas persistentes, usadas na loja
-let speedUpgrades = 0;       // quantas vezes o jogador comprou velocidade
+let wallet = 0;
+let speedUpgrades = 0;
+let jumpUpgrades = 0;
+let multLevel = 0; // cada nível soma +1 no multiplicador (começa em x1)
+let livesPurchased = 0;
 let currentStageIndex = 0;
 
 function currentMoveSpeed() {
   return BASE_MOVE_SPEED + speedUpgrades * SPEED_PER_UPGRADE;
 }
-
-function speedUpgradeCost() {
-  return SPEED_UPGRADE_BASE_COST + speedUpgrades * 2; // fica mais caro a cada compra
+function currentJumpForce() {
+  return Math.max(MIN_JUMP_FORCE, BASE_JUMP_FORCE + jumpUpgrades * JUMP_PER_UPGRADE);
 }
+function currentMultiplier() {
+  return 1 + multLevel;
+}
+function speedUpgradeCost() { return 3 + speedUpgrades * 2; }
+function jumpUpgradeCost() { return 3 + jumpUpgrades * 2; }
+function multUpgradeCost() { return 5 + multLevel * 4; }
+function lifeUpgradeCost() { return 4 + livesPurchased * 3; }
+const MAX_LIVES = 12;
 
 const player = {
   x: 50, y: 300, w: 28, h: 36,
@@ -186,9 +238,8 @@ const player = {
   lives: 5
 };
 
-// ----- Definição das fases -----
-// Cada fase tem suas próprias plataformas, moedas, inimigos e bandeira.
-const stages = [
+// ----- Fases feitas à mão (1 e 2) -----
+const handMadeStages = [
   {
     spawn: { x: 50, y: 300 },
     platforms: [
@@ -204,7 +255,7 @@ const stages = [
       { x: 190, y: 305 },
       { x: 380, y: 245 },
       { x: 560, y: 305 },
-      { x: 700, y: 185 },
+      { x: 700, y: 205 },
       { x: 330, y: 145 },
       { x: 110, y: 185 },
     ],
@@ -234,7 +285,7 @@ const stages = [
       { x: 300, y: 265 },
       { x: 440, y: 315 },
       { x: 580, y: 265 },
-      { x: 710, y: 205 },
+      { x: 710, y: 225 },
       { x: 520, y: 145 },
       { x: 340, y: 105 },
       { x: 160, y: 145 },
@@ -251,9 +302,85 @@ const stages = [
   }
 ];
 
+// ----- Gerador de fases (para as fases 3 a 100) -----
+// PRNG simples e determinístico (mesmo índice sempre gera a mesma fase)
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function generateStage(stageIndex) {
+  const rng = mulberry32(9000 + stageIndex * 131);
+  const groundY = 410;
+  const platforms = [{ x: 0, y: groundY, w: 800, h: 40 }];
+  const coinPositions = [];
+
+  const difficulty = Math.min(1, stageIndex / 100); // 0 a 1
+  const numPlatforms = 6 + Math.floor(difficulty * 5); // 6 a 11 plataformas
+
+  let x = 70;
+  let y = groundY - 80;
+  for (let i = 0; i < numPlatforms; i++) {
+    const w = 80 + Math.floor(rng() * 50);
+    x = Math.min(760 - w, Math.max(0, x));
+    platforms.push({ x, y, w, h: 18 });
+    coinPositions.push({ x: x + w / 2, y: y - 35 });
+
+    const dx = 110 + Math.floor(rng() * (70 + difficulty * 30));
+    const dy = Math.floor((rng() - 0.5) * (140 + difficulty * 40));
+    x = x + dx;
+    y = Math.max(80, Math.min(375, y + dy));
+    if (x > 720) x = 700 - Math.floor(rng() * 40);
+  }
+
+  const lastPlatform = platforms[platforms.length - 1];
+  const flag = { x: lastPlatform.x + lastPlatform.w - 30, y: lastPlatform.y - 65, w: 20, h: 65 };
+  // remove a moeda que ficaria em cima da bandeira, se muito próxima
+  const lastCoin = coinPositions[coinPositions.length - 1];
+  if (lastCoin && Math.abs(lastCoin.x - (flag.x + 10)) < 30) coinPositions.pop();
+
+  const numEnemies = Math.min(9, 3 + Math.floor(difficulty * 7));
+  const enemyDefs = [];
+  for (let i = 0; i < numEnemies; i++) {
+    const useVertical = rng() > 0.5;
+    const speed = 1.3 + rng() * (1.2 + difficulty * 1.5);
+    if (useVertical) {
+      const baseX = 60 + Math.floor(rng() * 680);
+      const topY = 80 + Math.floor(rng() * 100);
+      const rangeY = 100 + Math.floor(rng() * 150);
+      enemyDefs.push({
+        type: 'v', x: baseX, y: topY, w: 26, h: 26,
+        minY: topY, maxY: Math.min(384, topY + rangeY), v: speed
+      });
+    } else {
+      const p = platforms[1 + Math.floor(rng() * (platforms.length - 1))] || platforms[0];
+      const rangeX = Math.max(40, p.w - 26);
+      enemyDefs.push({
+        type: 'h', x: p.x, y: p.y - 26, w: 26, h: 26,
+        minX: p.x, maxX: p.x + rangeX, v: speed
+      });
+    }
+  }
+
+  return {
+    spawn: { x: 40, y: groundY - 90 },
+    platforms, coinPositions, enemyDefs, flag
+  };
+}
+
+const TOTAL_STAGES = 100;
+const stages = handMadeStages.slice();
+for (let i = handMadeStages.length; i < TOTAL_STAGES; i++) {
+  stages.push(generateStage(i));
+}
+
 stageTotalEl.textContent = stages.length;
 
-// Estado ativo da fase atual (recriado a cada loadStage)
+// Estado ativo da fase atual
 let platforms = [];
 let coins = [];
 let enemies = [];
@@ -279,17 +406,77 @@ function loadStage(index) {
 }
 
 function resetGame() {
+  clearProgress();
   player.lives = 5;
   wallet = 0;
   speedUpgrades = 0;
+  jumpUpgrades = 0;
+  multLevel = 0;
   gameOver = false;
   livesEl.textContent = player.lives;
   walletEl.textContent = wallet;
+  multDisplayEl.textContent = currentMultiplier();
   loadStage(0);
+}
+
+function startGame() {
+  const saved = loadProgress();
+  if (saved && stages[saved.stageIndex]) {
+    wallet = saved.wallet || 0;
+    speedUpgrades = saved.speedUpgrades || 0;
+    jumpUpgrades = saved.jumpUpgrades || 0;
+    multLevel = saved.multLevel || 0;
+    player.lives = saved.lives && saved.lives > 0 ? saved.lives : 5;
+    gameOver = false;
+    livesEl.textContent = player.lives;
+    walletEl.textContent = wallet;
+    multDisplayEl.textContent = currentMultiplier();
+    loadStage(saved.stageIndex);
+    flashMessage(`Progresso carregado! Continuando na fase ${saved.stageIndex + 1}.`, 3500);
+  } else {
+    resetGame();
+  }
 }
 
 function updateCoinCount() {
   coinsEl.textContent = coins.filter(c => c.taken).length;
+}
+
+// ----- Sistema de salvamento (localStorage) -----
+const SAVE_KEY = 'corridaDaEstrela_save_v1';
+
+function saveProgress() {
+  try {
+    const data = {
+      stageIndex: currentStageIndex,
+      wallet, speedUpgrades, jumpUpgrades, multLevel,
+      lives: player.lives
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  } catch (err) {
+    console.warn('Não foi possível salvar o progresso:', err);
+  }
+}
+
+function loadProgress() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function clearProgress() {
+  try { localStorage.removeItem(SAVE_KEY); } catch (err) {}
+}
+
+function flashMessage(text, durationMs) {
+  msgEl.textContent = text;
+  clearTimeout(flashMessage._t);
+  flashMessage._t = setTimeout(() => {
+    if (msgEl.textContent === text) msgEl.textContent = '';
+  }, durationMs || 3000);
 }
 
 // ----- Entrada do teclado -----
@@ -306,8 +493,41 @@ buySpeedBtn.addEventListener('click', () => {
   if (wallet >= cost) {
     wallet -= cost;
     speedUpgrades += 1;
-    refreshShopUI();
     walletEl.textContent = wallet;
+    refreshShopUI();
+  }
+});
+
+buyJumpBtn.addEventListener('click', () => {
+  const cost = jumpUpgradeCost();
+  if (wallet >= cost && currentJumpForce() > MIN_JUMP_FORCE) {
+    wallet -= cost;
+    jumpUpgrades += 1;
+    walletEl.textContent = wallet;
+    refreshShopUI();
+  }
+});
+
+buyMultBtn.addEventListener('click', () => {
+  const cost = multUpgradeCost();
+  if (wallet >= cost) {
+    wallet -= cost;
+    multLevel += 1;
+    walletEl.textContent = wallet;
+    multDisplayEl.textContent = currentMultiplier();
+    refreshShopUI();
+  }
+});
+
+buyLifeBtn.addEventListener('click', () => {
+  const cost = lifeUpgradeCost();
+  if (wallet >= cost && player.lives < MAX_LIVES) {
+    wallet -= cost;
+    livesPurchased += 1;
+    player.lives += 1;
+    livesEl.textContent = player.lives;
+    walletEl.textContent = wallet;
+    refreshShopUI();
   }
 });
 
@@ -315,18 +535,28 @@ shopContinueBtn.addEventListener('click', () => {
   const next = currentStageIndex + 1;
   if (next < stages.length) {
     loadStage(next);
+    saveProgress();
   } else {
-    // Não deveria acontecer (loja só aparece se houver próxima fase), mas por segurança:
     shopOverlay.style.display = 'none';
     inShop = false;
+    clearProgress();
   }
 });
 
 function refreshShopUI() {
   shopWalletAmount.textContent = wallet;
-  const cost = speedUpgradeCost();
-  speedCostEl.textContent = cost;
-  buySpeedBtn.disabled = wallet < cost;
+
+  const sCost = speedUpgradeCost();
+  speedCostEl.textContent = sCost;
+  buySpeedBtn.disabled = wallet < sCost;
+
+  const jCost = jumpUpgradeCost();
+  jumpCostEl.textContent = jCost;
+  buyJumpBtn.disabled = wallet < jCost || currentJumpForce() <= MIN_JUMP_FORCE;
+
+  const mCost = multUpgradeCost();
+  multCostEl.textContent = mCost;
+  buyMultBtn.disabled = wallet < mCost;
 }
 
 function openShop() {
@@ -343,26 +573,22 @@ function update() {
   if (gameOver || win || inShop) return;
 
   const moveSpeed = currentMoveSpeed();
+  const jumpForce = currentJumpForce();
 
-  // Movimento horizontal
   if (keys['ArrowLeft'] || keys['a'] || keys['A']) player.vx = -moveSpeed;
   else if (keys['ArrowRight'] || keys['d'] || keys['D']) player.vx = moveSpeed;
   else player.vx *= FRICTION;
 
-  // Pulo
   if ((keys['ArrowUp'] || keys['w'] || keys['W'] || keys[' ']) && player.onGround) {
-    player.vy = JUMP_FORCE;
+    player.vy = jumpForce;
     player.onGround = false;
   }
 
-  // Gravidade
   player.vy += GRAVITY;
 
-  // Move horizontal e checa colisão
   player.x += player.vx;
   player.x = Math.max(0, Math.min(canvas.width - player.w, player.x));
 
-  // Move vertical e checa colisão com plataformas
   player.y += player.vy;
   player.onGround = false;
   for (const p of platforms) {
@@ -378,22 +604,19 @@ function update() {
     }
   }
 
-  // Cair no vazio
   if (player.y > canvas.height) {
     loseLife();
   }
 
-  // Coletar moedas (soma na carteira também)
   for (const c of coins) {
     if (!c.taken && rectsOverlap(player, { x: c.x - 10, y: c.y - 10, w: 20, h: 20 })) {
       c.taken = true;
-      wallet += 1;
+      wallet += currentMultiplier();
       updateCoinCount();
       walletEl.textContent = wallet;
     }
   }
 
-  // Inimigos: mover (horizontal ou vertical) e checar colisão
   for (const en of enemies) {
     if (en.type === 'h') {
       en.x += en.v;
@@ -407,12 +630,11 @@ function update() {
     }
   }
 
-  // Checar vitória da fase
   if (rectsOverlap(player, flag)) {
     win = true;
     const isLastStage = currentStageIndex === stages.length - 1;
     if (isLastStage) {
-      msgEl.textContent = '🏆 Você venceu todas as fases! Pressione R para jogar de novo.';
+      msgEl.textContent = '🏆 Você venceu todas as 100 fases! Pressione R para jogar de novo.';
     } else {
       msgEl.textContent = 'Fase concluída! Visite a loja para continuar.';
       openShop();
@@ -435,14 +657,12 @@ function loseLife() {
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Nuvens de fundo (decorativo simples)
   ctx.fillStyle = 'rgba(255,255,255,0.6)';
   ctx.beginPath();
   ctx.ellipse(120, 60, 30, 16, 0, 0, Math.PI * 2);
   ctx.ellipse(600, 90, 40, 20, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Plataformas
   for (const p of platforms) {
     ctx.fillStyle = '#5a3921';
     ctx.fillRect(p.x, p.y, p.w, p.h);
@@ -450,7 +670,6 @@ function draw() {
     ctx.fillRect(p.x, p.y, p.w, 6);
   }
 
-  // Moedas
   for (const c of coins) {
     if (c.taken) continue;
     ctx.beginPath();
@@ -461,7 +680,6 @@ function draw() {
     ctx.stroke();
   }
 
-  // Inimigos (blocos de rocha vermelhos)
   for (const en of enemies) {
     ctx.fillStyle = en.color;
     ctx.fillRect(en.x, en.y, en.w, en.h);
@@ -480,7 +698,6 @@ function draw() {
     ctx.fillText(arrow, en.x + en.w / 2, en.y + en.h + 12);
   }
 
-  // Bandeira
   ctx.fillStyle = '#888';
   ctx.fillRect(flag.x, flag.y, 4, flag.h);
   ctx.fillStyle = '#ffdd33';
@@ -490,7 +707,6 @@ function draw() {
   ctx.lineTo(flag.x + 4, flag.y + 16);
   ctx.fill();
 
-  // Jogador
   ctx.fillStyle = player.color;
   ctx.fillRect(player.x, player.y, player.w, player.h);
   ctx.fillStyle = '#fff';
@@ -509,7 +725,7 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-resetGame();
+startGame();
 loop();
 </script>
 </body>
