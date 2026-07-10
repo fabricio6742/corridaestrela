@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Corrida da Estrela — Beta</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(180deg, #1b2a4a 0%, #2d4373 60%, #4a6fa5 100%);
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    color: #f4f4f4;
+    gap: 12px;
+    padding: 20px;
+  }
+  h1 {
+    margin: 0;
+    font-size: 1.6rem;
+    letter-spacing: 1px;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  }
+  #info {
+    display: flex;
+    gap: 24px;
+    font-size: 1rem;
+    background: rgba(0,0,0,0.25);
+    padding: 6px 16px;
+    border-radius: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  #stage {
+    position: relative;
+    width: 800px;
+    max-width: 100%;
+  }
+  canvas {
+    background: #87ceeb;
+    border-radius: 10px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    border: 3px solid rgba(255,255,255,0.15);
+    width: 100%;
+    display: block;
+  }
+  #msg {
+    min-height: 24px;
+    font-size: 1.1rem;
+    font-weight: bold;
+  }
+  #controls {
+    font-size: 0.85rem;
+    opacity: 0.8;
+  }
+  button {
+    background: #ffb347;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  button:hover { background: #ffc670; }
+  button:disabled { background: #999; cursor: not-allowed; opacity: 0.6; }
+
+  /* ----- Loja ----- */
+  #shopOverlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 15, 30, 0.92);
+    border-radius: 10px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 20px;
+    text-align: center;
+  }
+  #shopOverlay h2 {
+    margin: 0;
+    color: #ffd700;
+    font-size: 1.4rem;
+  }
+  #shopWallet {
+    font-size: 1rem;
+    background: rgba(255,255,255,0.1);
+    padding: 4px 14px;
+    border-radius: 20px;
+  }
+  .shop-item {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 10px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    max-width: 420px;
+  }
+  .shop-item .icon { font-size: 2rem; }
+  .shop-item .details { text-align: left; flex: 1; }
+  .shop-item .details .name { font-weight: bold; }
+  .shop-item .details .desc { font-size: 0.8rem; opacity: 0.8; }
+  #shopContinue { margin-top: 6px; }
+</style>
+</head>
+<body>
+  <h1>⭐ Corrida da Estrela — Beta</h1>
+  <div id="info">
+    <div>Moedas da fase: <span id="coins">0</span> / <span id="total">0</span></div>
+    <div>Vidas: <span id="lives">5</span></div>
+    <div>💰 Carteira: <span id="wallet">0</span></div>
+    <div>Fase: <span id="stageNum">1</span> / <span id="stageTotal">2</span></div>
+  </div>
+  <div id="stage">
+    <canvas id="game" width="800" height="450"></canvas>
+    <div id="shopOverlay">
+      <h2>🛒 Loja da Fase</h2>
+      <div id="shopWallet">Você tem 💰 <span id="shopWalletAmount">0</span> moedas</div>
+      <div class="shop-item">
+        <div class="icon">👟</div>
+        <div class="details">
+          <div class="name">Bota da Velocidade</div>
+          <div class="desc">Aumenta sua velocidade de movimento permanentemente.</div>
+        </div>
+        <button id="buySpeedBtn">Comprar (💰 <span id="speedCost">3</span>)</button>
+      </div>
+      <button id="shopContinue">Ir para a próxima fase ▶</button>
+    </div>
+  </div>
+  <div id="msg"></div>
+  <div id="controls">Setas ou A/D para mover • Espaço ou seta pra cima para pular • R para reiniciar tudo</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const coinsEl = document.getElementById('coins');
+const totalEl = document.getElementById('total');
+const livesEl = document.getElementById('lives');
+const walletEl = document.getElementById('wallet');
+const stageNumEl = document.getElementById('stageNum');
+const stageTotalEl = document.getElementById('stageTotal');
+const msgEl = document.getElementById('msg');
+const shopOverlay = document.getElementById('shopOverlay');
+const shopWalletAmount = document.getElementById('shopWalletAmount');
+const buySpeedBtn = document.getElementById('buySpeedBtn');
+const speedCostEl = document.getElementById('speedCost');
+const shopContinueBtn = document.getElementById('shopContinue');
+
+// ----- Configurações de física -----
+const GRAVITY = 0.6;
+const BASE_MOVE_SPEED = 4;
+const SPEED_PER_UPGRADE = 1.2;
+const JUMP_FORCE = -12;
+const FRICTION = 0.8;
+const SPEED_UPGRADE_BASE_COST = 3;
+
+// ----- Estado do jogo -----
+let keys = {};
+let gameOver = false;
+let win = false;
+let inShop = false;
+let wallet = 0;              // moedas persistentes, usadas na loja
+let speedUpgrades = 0;       // quantas vezes o jogador comprou velocidade
+let currentStageIndex = 0;
+
+function currentMoveSpeed() {
+  return BASE_MOVE_SPEED + speedUpgrades * SPEED_PER_UPGRADE;
+}
+
+function speedUpgradeCost() {
+  return SPEED_UPGRADE_BASE_COST + speedUpgrades * 2; // fica mais caro a cada compra
+}
+
+const player = {
+  x: 50, y: 300, w: 28, h: 36,
+  vx: 0, vy: 0,
+  onGround: false,
+  color: '#ff5e5e',
+  lives: 5
+};
+
+// ----- Definição das fases -----
+// Cada fase tem suas próprias plataformas, moedas, inimigos e bandeira.
+const stages = [
+  {
+    spawn: { x: 50, y: 300 },
+    platforms: [
+      { x: 0,   y: 410, w: 800, h: 40 },
+      { x: 150, y: 340, w: 120, h: 18 },
+      { x: 340, y: 280, w: 120, h: 18 },
+      { x: 520, y: 340, w: 100, h: 18 },
+      { x: 650, y: 240, w: 130, h: 18 },
+      { x: 300, y: 180, w: 100, h: 18 },
+      { x: 80,  y: 220, w: 100, h: 18 },
+    ],
+    coinPositions: [
+      { x: 190, y: 305 },
+      { x: 380, y: 245 },
+      { x: 560, y: 305 },
+      { x: 700, y: 185 },
+      { x: 330, y: 145 },
+      { x: 110, y: 185 },
+    ],
+    enemyDefs: [
+      { type: 'h', x: 150, y: 380, w: 26, h: 26, minX: 150, maxX: 260, v: 1.5 },
+      { type: 'h', x: 520, y: 380, w: 26, h: 26, minX: 520, maxX: 610, v: 1.8 },
+      { type: 'v', x: 90,  y: 140, w: 26, h: 26, minY: 100, maxY: 210, v: 1.2 },
+      { type: 'v', x: 660, y: 100, w: 26, h: 26, minY: 100, maxY: 210, v: 1.6 },
+    ],
+    flag: { x: 750, y: 175, w: 20, h: 65 }
+  },
+  {
+    spawn: { x: 40, y: 360 },
+    platforms: [
+      { x: 0,   y: 410, w: 800, h: 40 },
+      { x: 120, y: 350, w: 90,  h: 18 },
+      { x: 260, y: 300, w: 90,  h: 18 },
+      { x: 400, y: 350, w: 90,  h: 18 },
+      { x: 540, y: 300, w: 90,  h: 18 },
+      { x: 660, y: 260, w: 110, h: 18 },
+      { x: 480, y: 180, w: 90,  h: 18 },
+      { x: 300, y: 140, w: 90,  h: 18 },
+      { x: 120, y: 180, w: 90,  h: 18 },
+    ],
+    coinPositions: [
+      { x: 160, y: 315 },
+      { x: 300, y: 265 },
+      { x: 440, y: 315 },
+      { x: 580, y: 265 },
+      { x: 710, y: 205 },
+      { x: 520, y: 145 },
+      { x: 340, y: 105 },
+      { x: 160, y: 145 },
+    ],
+    enemyDefs: [
+      { type: 'h', x: 120, y: 380, w: 26, h: 26, minX: 120, maxX: 200, v: 1.8 },
+      { type: 'h', x: 400, y: 380, w: 26, h: 26, minX: 400, maxX: 480, v: 2.0 },
+      { type: 'h', x: 660, y: 380, w: 26, h: 26, minX: 660, maxX: 760, v: 2.2 },
+      { type: 'v', x: 260, y: 150, w: 26, h: 26, minY: 150, maxY: 290, v: 1.6 },
+      { type: 'v', x: 540, y: 90,  w: 26, h: 26, minY: 90,  maxY: 290, v: 1.9 },
+      { type: 'v', x: 120, y: 90,  w: 26, h: 26, minY: 90,  maxY: 170, v: 1.4 },
+    ],
+    flag: { x: 750, y: 195, w: 20, h: 65 }
+  }
+];
+
+stageTotalEl.textContent = stages.length;
+
+// Estado ativo da fase atual (recriado a cada loadStage)
+let platforms = [];
+let coins = [];
+let enemies = [];
+let flag = { x: 0, y: 0, w: 0, h: 0 };
+
+function loadStage(index) {
+  const s = stages[index];
+  currentStageIndex = index;
+  platforms = s.platforms;
+  coins = s.coinPositions.map(p => ({ x: p.x, y: p.y, taken: false }));
+  enemies = s.enemyDefs.map(e => ({ ...e, color: '#e63946' }));
+  flag = s.flag;
+  player.x = s.spawn.x;
+  player.y = s.spawn.y;
+  player.vx = 0; player.vy = 0;
+  win = false;
+  inShop = false;
+  shopOverlay.style.display = 'none';
+  msgEl.textContent = '';
+  totalEl.textContent = coins.length;
+  stageNumEl.textContent = index + 1;
+  updateCoinCount();
+}
+
+function resetGame() {
+  player.lives = 5;
+  wallet = 0;
+  speedUpgrades = 0;
+  gameOver = false;
+  livesEl.textContent = player.lives;
+  walletEl.textContent = wallet;
+  loadStage(0);
+}
+
+function updateCoinCount() {
+  coinsEl.textContent = coins.filter(c => c.taken).length;
+}
+
+// ----- Entrada do teclado -----
+window.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if (e.key === ' ' || e.key.startsWith('Arrow')) e.preventDefault();
+  if (e.key.toLowerCase() === 'r') resetGame();
+});
+window.addEventListener('keyup', e => { keys[e.key] = false; });
+
+// ----- Loja: eventos dos botões -----
+buySpeedBtn.addEventListener('click', () => {
+  const cost = speedUpgradeCost();
+  if (wallet >= cost) {
+    wallet -= cost;
+    speedUpgrades += 1;
+    refreshShopUI();
+    walletEl.textContent = wallet;
+  }
+});
+
+shopContinueBtn.addEventListener('click', () => {
+  const next = currentStageIndex + 1;
+  if (next < stages.length) {
+    loadStage(next);
+  } else {
+    // Não deveria acontecer (loja só aparece se houver próxima fase), mas por segurança:
+    shopOverlay.style.display = 'none';
+    inShop = false;
+  }
+});
+
+function refreshShopUI() {
+  shopWalletAmount.textContent = wallet;
+  const cost = speedUpgradeCost();
+  speedCostEl.textContent = cost;
+  buySpeedBtn.disabled = wallet < cost;
+}
+
+function openShop() {
+  inShop = true;
+  refreshShopUI();
+  shopOverlay.style.display = 'flex';
+}
+
+function rectsOverlap(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function update() {
+  if (gameOver || win || inShop) return;
+
+  const moveSpeed = currentMoveSpeed();
+
+  // Movimento horizontal
+  if (keys['ArrowLeft'] || keys['a'] || keys['A']) player.vx = -moveSpeed;
+  else if (keys['ArrowRight'] || keys['d'] || keys['D']) player.vx = moveSpeed;
+  else player.vx *= FRICTION;
+
+  // Pulo
+  if ((keys['ArrowUp'] || keys['w'] || keys['W'] || keys[' ']) && player.onGround) {
+    player.vy = JUMP_FORCE;
+    player.onGround = false;
+  }
+
+  // Gravidade
+  player.vy += GRAVITY;
+
+  // Move horizontal e checa colisão
+  player.x += player.vx;
+  player.x = Math.max(0, Math.min(canvas.width - player.w, player.x));
+
+  // Move vertical e checa colisão com plataformas
+  player.y += player.vy;
+  player.onGround = false;
+  for (const p of platforms) {
+    if (rectsOverlap(player, p)) {
+      if (player.vy > 0 && player.y + player.h - player.vy <= p.y + 1) {
+        player.y = p.y - player.h;
+        player.vy = 0;
+        player.onGround = true;
+      } else if (player.vy < 0 && player.y - player.vy >= p.y + p.h - 1) {
+        player.y = p.y + p.h;
+        player.vy = 0;
+      }
+    }
+  }
+
+  // Cair no vazio
+  if (player.y > canvas.height) {
+    loseLife();
+  }
+
+  // Coletar moedas (soma na carteira também)
+  for (const c of coins) {
+    if (!c.taken && rectsOverlap(player, { x: c.x - 10, y: c.y - 10, w: 20, h: 20 })) {
+      c.taken = true;
+      wallet += 1;
+      updateCoinCount();
+      walletEl.textContent = wallet;
+    }
+  }
+
+  // Inimigos: mover (horizontal ou vertical) e checar colisão
+  for (const en of enemies) {
+    if (en.type === 'h') {
+      en.x += en.v;
+      if (en.x < en.minX || en.x + en.w > en.maxX) en.v *= -1;
+    } else {
+      en.y += en.v;
+      if (en.y < en.minY || en.y + en.h > en.maxY) en.v *= -1;
+    }
+    if (rectsOverlap(player, en)) {
+      loseLife();
+    }
+  }
+
+  // Checar vitória da fase
+  if (rectsOverlap(player, flag)) {
+    win = true;
+    const isLastStage = currentStageIndex === stages.length - 1;
+    if (isLastStage) {
+      msgEl.textContent = '🏆 Você venceu todas as fases! Pressione R para jogar de novo.';
+    } else {
+      msgEl.textContent = 'Fase concluída! Visite a loja para continuar.';
+      openShop();
+    }
+  }
+}
+
+function loseLife() {
+  player.lives -= 1;
+  livesEl.textContent = player.lives;
+  if (player.lives <= 0) {
+    gameOver = true;
+    msgEl.textContent = '💀 Fim de jogo! Pressione R para reiniciar.';
+  } else {
+    const s = stages[currentStageIndex];
+    player.x = s.spawn.x; player.y = s.spawn.y; player.vx = 0; player.vy = 0;
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Nuvens de fundo (decorativo simples)
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.beginPath();
+  ctx.ellipse(120, 60, 30, 16, 0, 0, Math.PI * 2);
+  ctx.ellipse(600, 90, 40, 20, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Plataformas
+  for (const p of platforms) {
+    ctx.fillStyle = '#5a3921';
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+    ctx.fillStyle = '#6fbf4f';
+    ctx.fillRect(p.x, p.y, p.w, 6);
+  }
+
+  // Moedas
+  for (const c of coins) {
+    if (c.taken) continue;
+    ctx.beginPath();
+    ctx.fillStyle = '#ffd700';
+    ctx.arc(c.x, c.y, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#c9a600';
+    ctx.stroke();
+  }
+
+  // Inimigos (blocos de rocha vermelhos)
+  for (const en of enemies) {
+    ctx.fillStyle = en.color;
+    ctx.fillRect(en.x, en.y, en.w, en.h);
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(en.x + 6, en.y + 4);
+    ctx.lineTo(en.x + 14, en.y + 14);
+    ctx.moveTo(en.x + 20, en.y + 6);
+    ctx.lineTo(en.x + 14, en.y + 18);
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    const arrow = en.type === 'h' ? '↔' : '↕';
+    ctx.fillText(arrow, en.x + en.w / 2, en.y + en.h + 12);
+  }
+
+  // Bandeira
+  ctx.fillStyle = '#888';
+  ctx.fillRect(flag.x, flag.y, 4, flag.h);
+  ctx.fillStyle = '#ffdd33';
+  ctx.beginPath();
+  ctx.moveTo(flag.x + 4, flag.y);
+  ctx.lineTo(flag.x + 24, flag.y + 8);
+  ctx.lineTo(flag.x + 4, flag.y + 16);
+  ctx.fill();
+
+  // Jogador
+  ctx.fillStyle = player.color;
+  ctx.fillRect(player.x, player.y, player.w, player.h);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(player.x + 6, player.y + 8, 5, 5);
+  ctx.fillRect(player.x + 17, player.y + 8, 5, 5);
+
+  if (gameOver) {
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+resetGame();
+loop();
+</script>
+</body>
+</html>
