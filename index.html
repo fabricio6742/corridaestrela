@@ -24,6 +24,15 @@
     letter-spacing: 1px;
     text-shadow: 0 2px 6px rgba(0,0,0,0.4);
   }
+  #topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+    background: rgba(0,0,0,0.25);
+    padding: 5px 14px;
+    border-radius: 20px;
+  }
   #info {
     display: flex;
     gap: 20px;
@@ -68,9 +77,41 @@
   }
   button:hover { background: #ffc670; }
   button:disabled { background: #999; cursor: not-allowed; opacity: 0.6; }
+  button.secondary { background: rgba(255,255,255,0.15); color: #fff; }
+  button.secondary:hover { background: rgba(255,255,255,0.28); }
+  button.danger { background: #e63946; color: #fff; }
+  button.danger:hover { background: #ff5566; }
 
-  /* ----- Loja ----- */
-  #shopOverlay {
+  input[type=text], input[type=password], input[type=number] {
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font-size: 0.9rem;
+  }
+  input::placeholder { color: rgba(255,255,255,0.5); }
+
+  /* ----- Tela de login ----- */
+  #loginScreen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    background: rgba(0,0,0,0.3);
+    padding: 30px 34px;
+    border-radius: 14px;
+    max-width: 340px;
+    text-align: center;
+  }
+  #loginScreen h2 { margin: 0; color: #ffd700; }
+  #loginScreen p { margin: 0; font-size: 0.8rem; opacity: 0.8; }
+  #loginScreen .field { display: flex; flex-direction: column; gap: 4px; width: 100%; text-align: left; }
+  #loginScreen label { font-size: 0.75rem; opacity: 0.8; }
+  #loginError { color: #ff8080; font-size: 0.8rem; min-height: 18px; }
+
+  /* ----- Loja / Admin (overlays sobre o canvas) ----- */
+  #shopOverlay, #adminOverlay {
     display: none;
     position: absolute;
     inset: 0;
@@ -84,7 +125,7 @@
     text-align: center;
     overflow-y: auto;
   }
-  #shopOverlay h2 {
+  #shopOverlay h2, #adminOverlay h2 {
     margin: 0;
     color: #ffd700;
     font-size: 1.3rem;
@@ -112,71 +153,135 @@
   .shop-item .details .desc { font-size: 0.75rem; opacity: 0.8; }
   .shop-item button { font-size: 0.8rem; padding: 6px 12px; white-space: nowrap; }
   #shopContinue { margin-top: 6px; }
+
+  .admin-row {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 460px;
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+    font-size: 0.85rem;
+  }
+  #adminList { font-size: 0.75rem; opacity: 0.8; max-width: 460px; word-break: break-word; }
 </style>
 </head>
 <body>
-  <h1>⭐ Corrida da Estrela — Beta</h1>
-  <div id="info">
-    <div>Moedas da fase: <span id="coins">0</span> / <span id="total">0</span></div>
-    <div>Vidas: <span id="lives">5</span></div>
-    <div>💰 Carteira: <span id="wallet">0</span></div>
-    <div>Multiplicador: x<span id="multDisplay">1</span></div>
-    <div>Fase: <span id="stageNum">1</span> / <span id="stageTotal">100</span></div>
-  </div>
-  <div id="stage">
-    <canvas id="game" width="800" height="450"></canvas>
-    <div id="shopOverlay">
-      <h2>🛒 Loja da Fase</h2>
-      <div id="shopWallet">Você tem 💰 <span id="shopWalletAmount">0</span> moedas</div>
 
-      <div class="shop-item">
-        <div class="icon">👟</div>
-        <div class="details">
-          <div class="name">Bota da Velocidade</div>
-          <div class="desc">Aumenta sua velocidade de movimento permanentemente.</div>
-        </div>
-        <button id="buySpeedBtn">Comprar (💰 <span id="speedCost">3</span>)</button>
-      </div>
-
-      <div class="shop-item">
-        <div class="icon">🦘</div>
-        <div class="details">
-          <div class="name">Salto Mais Alto</div>
-          <div class="desc">Aumenta a altura do seu pulo permanentemente.</div>
-        </div>
-        <button id="buyJumpBtn">Comprar (💰 <span id="jumpCost">3</span>)</button>
-      </div>
-
-      <div class="shop-item">
-        <div class="icon">✖️</div>
-        <div class="details">
-          <div class="name">Multiplicador de Moedas</div>
-          <div class="desc">Cada moeda coletada passa a valer mais na carteira.</div>
-        </div>
-        <button id="buyMultBtn">Comprar (💰 <span id="multCost">5</span>)</button>
-      </div>
-
-      <div class="shop-item">
-        <div class="icon">❤️</div>
-        <div class="details">
-          <div class="name">Vida Extra</div>
-          <div class="desc">Adiciona uma vida ao seu personagem.</div>
-        </div>
-        <button id="buyLifeBtn">Comprar (💰 <span id="lifeCost">4</span>)</button>
-      </div>
-
-      <button id="shopContinue">Ir para a próxima fase ▶</button>
+  <!-- ===== TELA DE LOGIN ===== -->
+  <div id="loginScreen">
+    <h2>⭐ Corrida da Estrela</h2>
+    <p>Digite um nome de usuário para criar ou continuar seu perfil neste navegador.</p>
+    <div class="field">
+      <label for="usernameInput">Nome de usuário</label>
+      <input type="text" id="usernameInput" placeholder="ex: joaozinho" maxlength="24">
     </div>
+    <div class="field">
+      <label for="passwordInput">Senha (só necessária para a conta de administrador)</label>
+      <input type="password" id="passwordInput" placeholder="deixe em branco se não for admin">
+    </div>
+    <div id="loginError"></div>
+    <button id="loginBtn">Entrar</button>
   </div>
-  <div id="msg"></div>
-  <div id="controls">Setas ou A/D para mover • Espaço ou seta pra cima para pular • R para reiniciar tudo (apaga o progresso salvo)<br>💾 Seu progresso é salvo automaticamente sempre que você avança de fase.</div>
+
+  <!-- ===== JOGO ===== -->
+  <div id="appRoot" style="display:none; flex-direction:column; align-items:center; gap:12px;">
+    <h1>⭐ Corrida da Estrela — Beta</h1>
+    <div id="topbar">
+      <span>👤 <span id="usernameDisplay">-</span></span>
+      <button class="secondary" id="adminPanelBtn" style="display:none;">🛠️ Painel Admin</button>
+      <button class="secondary" id="logoutBtn">Sair</button>
+    </div>
+    <div id="info">
+      <div>Moedas da fase: <span id="coins">0</span> / <span id="total">0</span></div>
+      <div>💰 Carteira: <span id="wallet">0</span></div>
+      <div>Multiplicador: x<span id="multDisplay">1</span></div>
+      <div>Fase: <span id="stageNum">1</span> / <span id="stageTotal">100</span></div>
+    </div>
+    <div id="stage">
+      <canvas id="game" width="800" height="450"></canvas>
+
+      <div id="shopOverlay">
+        <h2>🛒 Loja da Fase</h2>
+        <div id="shopWallet">Você tem 💰 <span id="shopWalletAmount">0</span> moedas</div>
+
+        <div class="shop-item">
+          <div class="icon">👟</div>
+          <div class="details">
+            <div class="name">Bota da Velocidade</div>
+            <div class="desc">Aumenta sua velocidade de movimento permanentemente.</div>
+          </div>
+          <button id="buySpeedBtn">Comprar (💰 <span id="speedCost">3</span>)</button>
+        </div>
+
+        <div class="shop-item">
+          <div class="icon">🦘</div>
+          <div class="details">
+            <div class="name">Salto Mais Alto</div>
+            <div class="desc">Aumenta a altura do seu pulo permanentemente.</div>
+          </div>
+          <button id="buyJumpBtn">Comprar (💰 <span id="jumpCost">3</span>)</button>
+        </div>
+
+        <div class="shop-item">
+          <div class="icon">✖️</div>
+          <div class="details">
+            <div class="name">Multiplicador de Moedas</div>
+            <div class="desc">Cada moeda coletada passa a valer mais na carteira.</div>
+          </div>
+          <button id="buyMultBtn">Comprar (💰 <span id="multCost">5</span>)</button>
+        </div>
+
+        <button id="shopContinue">Ir para a próxima fase ▶</button>
+      </div>
+
+      <div id="adminOverlay">
+        <h2>🛠️ Painel do Administrador</h2>
+
+        <div class="admin-row">
+          <span>Ir para a fase:</span>
+          <input type="number" id="adminStageInput" min="1" max="100" style="width:70px;">
+          <button id="adminGoStageBtn">Ir</button>
+        </div>
+
+        <div class="admin-row">
+          <span>Adicionar moedas à sua carteira:</span>
+          <button id="adminAddCoinsBtn">+100 💰</button>
+        </div>
+
+        <div class="admin-row">
+          <span>Resetar o seu próprio progresso:</span>
+          <button class="danger" id="adminResetMineBtn">Resetar meu perfil</button>
+        </div>
+
+        <div class="admin-row">
+          <span>Resetar progresso de outro jogador:</span>
+          <input type="text" id="adminOtherUserInput" placeholder="nome de usuário" style="width:140px;">
+          <button class="danger" id="adminResetOtherBtn">Resetar</button>
+        </div>
+
+        <div class="admin-row" style="flex-direction:column; align-items:flex-start;">
+          <span>Perfis salvos neste navegador:</span>
+          <div id="adminList">carregando...</div>
+        </div>
+
+        <button class="secondary" id="adminCloseBtn">Fechar painel</button>
+      </div>
+    </div>
+    <div id="msg"></div>
+    <div id="controls">Setas ou A/D para mover • Espaço ou seta pra cima para pular • X para atirar<br>R para reiniciar seu progresso nesta fase-zero (apaga seu save) • 💾 Progresso salvo automaticamente por perfil<br>Blocos vermelhos: se cair ou tocar, volta ao início da fase. Guardiões cinzas: precisam ser atingidos por tiros para liberar a passagem.</div>
+  </div>
 
 <script>
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const coinsEl = document.getElementById('coins');
 const totalEl = document.getElementById('total');
-const livesEl = document.getElementById('lives');
 const walletEl = document.getElementById('wallet');
 const multDisplayEl = document.getElementById('multDisplay');
 const stageNumEl = document.getElementById('stageNum');
@@ -187,12 +292,30 @@ const shopWalletAmount = document.getElementById('shopWalletAmount');
 const buySpeedBtn = document.getElementById('buySpeedBtn');
 const buyJumpBtn = document.getElementById('buyJumpBtn');
 const buyMultBtn = document.getElementById('buyMultBtn');
-const buyLifeBtn = document.getElementById('buyLifeBtn');
 const speedCostEl = document.getElementById('speedCost');
 const jumpCostEl = document.getElementById('jumpCost');
 const multCostEl = document.getElementById('multCost');
-const lifeCostEl = document.getElementById('lifeCost');
 const shopContinueBtn = document.getElementById('shopContinue');
+
+const loginScreen = document.getElementById('loginScreen');
+const appRoot = document.getElementById('appRoot');
+const usernameInput = document.getElementById('usernameInput');
+const passwordInput = document.getElementById('passwordInput');
+const loginBtn = document.getElementById('loginBtn');
+const loginError = document.getElementById('loginError');
+const usernameDisplay = document.getElementById('usernameDisplay');
+const adminPanelBtn = document.getElementById('adminPanelBtn');
+const logoutBtn = document.getElementById('logoutBtn');
+
+const adminOverlay = document.getElementById('adminOverlay');
+const adminStageInput = document.getElementById('adminStageInput');
+const adminGoStageBtn = document.getElementById('adminGoStageBtn');
+const adminAddCoinsBtn = document.getElementById('adminAddCoinsBtn');
+const adminResetMineBtn = document.getElementById('adminResetMineBtn');
+const adminOtherUserInput = document.getElementById('adminOtherUserInput');
+const adminResetOtherBtn = document.getElementById('adminResetOtherBtn');
+const adminListEl = document.getElementById('adminList');
+const adminCloseBtn = document.getElementById('adminCloseBtn');
 
 // ----- Configurações de física -----
 const GRAVITY = 0.6;
@@ -200,42 +323,59 @@ const BASE_MOVE_SPEED = 4;
 const SPEED_PER_UPGRADE = 1.2;
 const BASE_JUMP_FORCE = -12;
 const JUMP_PER_UPGRADE = -1.3;
-const MIN_JUMP_FORCE = -22; // limite pra não ficar absurdo
+const MIN_JUMP_FORCE = -22;
 const FRICTION = 0.8;
+
+// ----- Configurações de tiro -----
+const PROJECTILE_SPEED = 9;
+const PROJECTILE_W = 12;
+const PROJECTILE_H = 4;
+const SHOOT_COOLDOWN_MS = 320;
+
+// ----- Contas -----
+const ADMIN_USER = 'fabriciogame';
+const ADMIN_PASS = 'Pipita18*';
+const ACCOUNTS_KEY = 'corridaDaEstrela_accounts_v1';
+
+let currentUsername = null;
+let isAdmin = false;
+let loggedIn = false;
+let adminPanelOpen = false;
+
+function loadAccounts() {
+  try { return JSON.parse(localStorage.getItem(ACCOUNTS_KEY)) || {}; }
+  catch (e) { return {}; }
+}
+function saveAccounts(obj) {
+  try { localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(obj)); }
+  catch (e) { console.warn('Não foi possível salvar contas:', e); }
+}
 
 // ----- Estado do jogo -----
 let keys = {};
-let gameOver = false;
 let win = false;
 let inShop = false;
 let wallet = 0;
 let speedUpgrades = 0;
 let jumpUpgrades = 0;
-let multLevel = 0; // cada nível soma +1 no multiplicador (começa em x1)
-let livesPurchased = 0;
+let multLevel = 0;
 let currentStageIndex = 0;
+let lastShotTime = 0;
+let projectiles = [];
 
-function currentMoveSpeed() {
-  return BASE_MOVE_SPEED + speedUpgrades * SPEED_PER_UPGRADE;
-}
-function currentJumpForce() {
-  return Math.max(MIN_JUMP_FORCE, BASE_JUMP_FORCE + jumpUpgrades * JUMP_PER_UPGRADE);
-}
-function currentMultiplier() {
-  return 1 + multLevel;
-}
+function currentMoveSpeed() { return BASE_MOVE_SPEED + speedUpgrades * SPEED_PER_UPGRADE; }
+function currentJumpForce() { return Math.max(MIN_JUMP_FORCE, BASE_JUMP_FORCE + jumpUpgrades * JUMP_PER_UPGRADE); }
+function currentMultiplier() { return 1 + multLevel; }
 function speedUpgradeCost() { return 3 + speedUpgrades * 2; }
 function jumpUpgradeCost() { return 3 + jumpUpgrades * 2; }
 function multUpgradeCost() { return 5 + multLevel * 4; }
-function lifeUpgradeCost() { return 4 + livesPurchased * 3; }
-const MAX_LIVES = 12;
 
 const player = {
   x: 50, y: 300, w: 28, h: 36,
   vx: 0, vy: 0,
   onGround: false,
-  color: '#ff5e5e',
-  lives: 5
+  facing: 1,
+  color: '#ff5e5e'
 };
 
 // ----- Fases feitas à mão (1 e 2) -----
@@ -264,6 +404,9 @@ const handMadeStages = [
       { type: 'h', x: 520, y: 380, w: 26, h: 26, minX: 520, maxX: 610, v: 1.8 },
       { type: 'v', x: 90,  y: 140, w: 26, h: 26, minY: 100, maxY: 210, v: 1.2 },
       { type: 'v', x: 660, y: 100, w: 26, h: 26, minY: 100, maxY: 210, v: 1.6 },
+    ],
+    guardianDefs: [
+      { x: 566, y: 304, w: 32, h: 36, hp: 2 },
     ],
     flag: { x: 750, y: 175, w: 20, h: 65 }
   },
@@ -298,12 +441,15 @@ const handMadeStages = [
       { type: 'v', x: 540, y: 90,  w: 26, h: 26, minY: 90,  maxY: 290, v: 1.9 },
       { type: 'v', x: 120, y: 90,  w: 26, h: 26, minY: 90,  maxY: 170, v: 1.4 },
     ],
+    guardianDefs: [
+      { x: 583, y: 264, w: 32, h: 36, hp: 2 },
+      { x: 698, y: 224, w: 32, h: 36, hp: 3 },
+    ],
     flag: { x: 750, y: 195, w: 20, h: 65 }
   }
 ];
 
-// ----- Gerador de fases (para as fases 3 a 100) -----
-// PRNG simples e determinístico (mesmo índice sempre gera a mesma fase)
+// ----- Gerador de fases (3 a 100) -----
 function mulberry32(seed) {
   return function () {
     seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
@@ -319,8 +465,8 @@ function generateStage(stageIndex) {
   const platforms = [{ x: 0, y: groundY, w: 800, h: 40 }];
   const coinPositions = [];
 
-  const difficulty = Math.min(1, stageIndex / 100); // 0 a 1
-  const numPlatforms = 6 + Math.floor(difficulty * 5); // 6 a 11 plataformas
+  const difficulty = Math.min(1, stageIndex / 100);
+  const numPlatforms = 6 + Math.floor(difficulty * 5);
 
   let x = 70;
   let y = groundY - 80;
@@ -339,7 +485,6 @@ function generateStage(stageIndex) {
 
   const lastPlatform = platforms[platforms.length - 1];
   const flag = { x: lastPlatform.x + lastPlatform.w - 30, y: lastPlatform.y - 65, w: 20, h: 65 };
-  // remove a moeda que ficaria em cima da bandeira, se muito próxima
   const lastCoin = coinPositions[coinPositions.length - 1];
   if (lastCoin && Math.abs(lastCoin.x - (flag.x + 10)) < 30) coinPositions.pop();
 
@@ -366,9 +511,26 @@ function generateStage(stageIndex) {
     }
   }
 
+  const guardianDefs = [];
+  if (stageIndex >= 3) {
+    const numGuardians = 1 + Math.floor(difficulty * 2);
+    for (let i = 0; i < numGuardians; i++) {
+      const midPlatforms = platforms.slice(1, -1);
+      if (midPlatforms.length === 0) break;
+      const p = midPlatforms[Math.floor(rng() * midPlatforms.length)];
+      const gw = 32, gh = 36;
+      guardianDefs.push({
+        x: p.x + Math.max(0, (p.w - gw) / 2),
+        y: p.y - gh,
+        w: gw, h: gh,
+        hp: 2 + Math.floor(difficulty * 2)
+      });
+    }
+  }
+
   return {
     spawn: { x: 40, y: groundY - 90 },
-    platforms, coinPositions, enemyDefs, flag
+    platforms, coinPositions, enemyDefs, guardianDefs, flag
   };
 }
 
@@ -384,6 +546,7 @@ stageTotalEl.textContent = stages.length;
 let platforms = [];
 let coins = [];
 let enemies = [];
+let guardians = [];
 let flag = { x: 0, y: 0, w: 0, h: 0 };
 
 function loadStage(index) {
@@ -392,10 +555,12 @@ function loadStage(index) {
   platforms = s.platforms;
   coins = s.coinPositions.map(p => ({ x: p.x, y: p.y, taken: false }));
   enemies = s.enemyDefs.map(e => ({ ...e, color: '#e63946' }));
+  guardians = (s.guardianDefs || []).map(g => ({ ...g, maxHp: g.hp, defeated: false }));
   flag = s.flag;
   player.x = s.spawn.x;
   player.y = s.spawn.y;
   player.vx = 0; player.vy = 0;
+  projectiles = [];
   win = false;
   inShop = false;
   shopOverlay.style.display = 'none';
@@ -405,70 +570,25 @@ function loadStage(index) {
   updateCoinCount();
 }
 
-function resetGame() {
-  clearProgress();
-  player.lives = 5;
-  wallet = 0;
-  speedUpgrades = 0;
-  jumpUpgrades = 0;
-  multLevel = 0;
-  gameOver = false;
-  livesEl.textContent = player.lives;
-  walletEl.textContent = wallet;
-  multDisplayEl.textContent = currentMultiplier();
-  loadStage(0);
-}
-
-function startGame() {
-  const saved = loadProgress();
-  if (saved && stages[saved.stageIndex]) {
-    wallet = saved.wallet || 0;
-    speedUpgrades = saved.speedUpgrades || 0;
-    jumpUpgrades = saved.jumpUpgrades || 0;
-    multLevel = saved.multLevel || 0;
-    player.lives = saved.lives && saved.lives > 0 ? saved.lives : 5;
-    gameOver = false;
-    livesEl.textContent = player.lives;
-    walletEl.textContent = wallet;
-    multDisplayEl.textContent = currentMultiplier();
-    loadStage(saved.stageIndex);
-    flashMessage(`Progresso carregado! Continuando na fase ${saved.stageIndex + 1}.`, 3500);
-  } else {
-    resetGame();
-  }
-}
-
 function updateCoinCount() {
   coinsEl.textContent = coins.filter(c => c.taken).length;
 }
 
-// ----- Sistema de salvamento (localStorage) -----
-const SAVE_KEY = 'corridaDaEstrela_save_v1';
-
+// ----- Salvamento por perfil -----
 function saveProgress() {
-  try {
-    const data = {
-      stageIndex: currentStageIndex,
-      wallet, speedUpgrades, jumpUpgrades, multLevel,
-      lives: player.lives
-    };
-    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
-  } catch (err) {
-    console.warn('Não foi possível salvar o progresso:', err);
-  }
+  if (!currentUsername) return;
+  const accounts = loadAccounts();
+  accounts[currentUsername] = { stageIndex: currentStageIndex, wallet, speedUpgrades, jumpUpgrades, multLevel };
+  saveAccounts(accounts);
 }
 
-function loadProgress() {
-  try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch (err) {
-    return null;
-  }
-}
-
-function clearProgress() {
-  try { localStorage.removeItem(SAVE_KEY); } catch (err) {}
+function applyProfileState(data) {
+  wallet = data.wallet || 0;
+  speedUpgrades = data.speedUpgrades || 0;
+  jumpUpgrades = data.jumpUpgrades || 0;
+  multLevel = data.multLevel || 0;
+  walletEl.textContent = wallet;
+  multDisplayEl.textContent = currentMultiplier();
 }
 
 function flashMessage(text, durationMs) {
@@ -479,58 +599,100 @@ function flashMessage(text, durationMs) {
   }, durationMs || 3000);
 }
 
+// ----- Login / logout -----
+function enterGame(username, admin) {
+  currentUsername = username;
+  isAdmin = admin;
+  loggedIn = true;
+
+  usernameDisplay.textContent = currentUsername + (isAdmin ? ' (Administrador)' : '');
+  adminPanelBtn.style.display = isAdmin ? 'inline-block' : 'none';
+
+  loginScreen.style.display = 'none';
+  appRoot.style.display = 'flex';
+
+  const accounts = loadAccounts();
+  const saved = accounts[currentUsername];
+  if (saved && stages[saved.stageIndex]) {
+    applyProfileState(saved);
+    loadStage(saved.stageIndex);
+    flashMessage(`Bem-vindo de volta, ${currentUsername}! Continuando na fase ${saved.stageIndex + 1}.`, 3500);
+  } else {
+    wallet = 0; speedUpgrades = 0; jumpUpgrades = 0; multLevel = 0;
+    walletEl.textContent = wallet;
+    multDisplayEl.textContent = currentMultiplier();
+    loadStage(0);
+    flashMessage(`Perfil novo criado para ${currentUsername}!`, 3000);
+  }
+}
+
+loginBtn.addEventListener('click', () => {
+  const uname = usernameInput.value.trim();
+  const pass = passwordInput.value;
+  if (!uname) { loginError.textContent = 'Digite um nome de usuário.'; return; }
+
+  if (uname.toLowerCase() === ADMIN_USER.toLowerCase()) {
+    if (pass !== ADMIN_PASS) {
+      loginError.textContent = 'Senha de administrador incorreta.';
+      return;
+    }
+    loginError.textContent = '';
+    enterGame(ADMIN_USER, true);
+  } else {
+    loginError.textContent = '';
+    enterGame(uname, false);
+  }
+  passwordInput.value = '';
+});
+
+usernameInput.addEventListener('keydown', e => { if (e.key === 'Enter') loginBtn.click(); });
+passwordInput.addEventListener('keydown', e => { if (e.key === 'Enter') loginBtn.click(); });
+
+logoutBtn.addEventListener('click', () => {
+  saveProgress();
+  loggedIn = false;
+  currentUsername = null;
+  isAdmin = false;
+  adminPanelOpen = false;
+  adminOverlay.style.display = 'none';
+  appRoot.style.display = 'none';
+  loginScreen.style.display = 'flex';
+  usernameInput.value = '';
+  passwordInput.value = '';
+  loginError.textContent = '';
+});
+
 // ----- Entrada do teclado -----
 window.addEventListener('keydown', e => {
   keys[e.key] = true;
   if (e.key === ' ' || e.key.startsWith('Arrow')) e.preventDefault();
-  if (e.key.toLowerCase() === 'r') resetGame();
+  if (e.key.toLowerCase() === 'r' && loggedIn && !inShop && !adminPanelOpen) {
+    if (currentUsername) {
+      const accounts = loadAccounts();
+      delete accounts[currentUsername];
+      saveAccounts(accounts);
+    }
+    wallet = 0; speedUpgrades = 0; jumpUpgrades = 0; multLevel = 0;
+    walletEl.textContent = wallet;
+    multDisplayEl.textContent = currentMultiplier();
+    loadStage(0);
+  }
 });
 window.addEventListener('keyup', e => { keys[e.key] = false; });
 
 // ----- Loja: eventos dos botões -----
 buySpeedBtn.addEventListener('click', () => {
   const cost = speedUpgradeCost();
-  if (wallet >= cost) {
-    wallet -= cost;
-    speedUpgrades += 1;
-    walletEl.textContent = wallet;
-    refreshShopUI();
-  }
+  if (wallet >= cost) { wallet -= cost; speedUpgrades += 1; walletEl.textContent = wallet; refreshShopUI(); }
 });
-
 buyJumpBtn.addEventListener('click', () => {
   const cost = jumpUpgradeCost();
-  if (wallet >= cost && currentJumpForce() > MIN_JUMP_FORCE) {
-    wallet -= cost;
-    jumpUpgrades += 1;
-    walletEl.textContent = wallet;
-    refreshShopUI();
-  }
+  if (wallet >= cost && currentJumpForce() > MIN_JUMP_FORCE) { wallet -= cost; jumpUpgrades += 1; walletEl.textContent = wallet; refreshShopUI(); }
 });
-
 buyMultBtn.addEventListener('click', () => {
   const cost = multUpgradeCost();
-  if (wallet >= cost) {
-    wallet -= cost;
-    multLevel += 1;
-    walletEl.textContent = wallet;
-    multDisplayEl.textContent = currentMultiplier();
-    refreshShopUI();
-  }
+  if (wallet >= cost) { wallet -= cost; multLevel += 1; walletEl.textContent = wallet; multDisplayEl.textContent = currentMultiplier(); refreshShopUI(); }
 });
-
-buyLifeBtn.addEventListener('click', () => {
-  const cost = lifeUpgradeCost();
-  if (wallet >= cost && player.lives < MAX_LIVES) {
-    wallet -= cost;
-    livesPurchased += 1;
-    player.lives += 1;
-    livesEl.textContent = player.lives;
-    walletEl.textContent = wallet;
-    refreshShopUI();
-  }
-});
-
 shopContinueBtn.addEventListener('click', () => {
   const next = currentStageIndex + 1;
   if (next < stages.length) {
@@ -539,24 +701,19 @@ shopContinueBtn.addEventListener('click', () => {
   } else {
     shopOverlay.style.display = 'none';
     inShop = false;
-    clearProgress();
+    if (currentUsername) {
+      const accounts = loadAccounts();
+      delete accounts[currentUsername];
+      saveAccounts(accounts);
+    }
   }
 });
 
 function refreshShopUI() {
   shopWalletAmount.textContent = wallet;
-
-  const sCost = speedUpgradeCost();
-  speedCostEl.textContent = sCost;
-  buySpeedBtn.disabled = wallet < sCost;
-
-  const jCost = jumpUpgradeCost();
-  jumpCostEl.textContent = jCost;
-  buyJumpBtn.disabled = wallet < jCost || currentJumpForce() <= MIN_JUMP_FORCE;
-
-  const mCost = multUpgradeCost();
-  multCostEl.textContent = mCost;
-  buyMultBtn.disabled = wallet < mCost;
+  const sCost = speedUpgradeCost(); speedCostEl.textContent = sCost; buySpeedBtn.disabled = wallet < sCost;
+  const jCost = jumpUpgradeCost(); jumpCostEl.textContent = jCost; buyJumpBtn.disabled = wallet < jCost || currentJumpForce() <= MIN_JUMP_FORCE;
+  const mCost = multUpgradeCost(); multCostEl.textContent = mCost; buyMultBtn.disabled = wallet < mCost;
 }
 
 function openShop() {
@@ -565,24 +722,91 @@ function openShop() {
   shopOverlay.style.display = 'flex';
 }
 
+// ----- Painel do administrador -----
+adminPanelBtn.addEventListener('click', () => {
+  adminPanelOpen = true;
+  refreshAdminList();
+  adminStageInput.value = currentStageIndex + 1;
+  adminOverlay.style.display = 'flex';
+});
+adminCloseBtn.addEventListener('click', () => {
+  adminPanelOpen = false;
+  adminOverlay.style.display = 'none';
+});
+adminGoStageBtn.addEventListener('click', () => {
+  let n = parseInt(adminStageInput.value, 10);
+  if (isNaN(n)) return;
+  n = Math.max(1, Math.min(stages.length, n));
+  loadStage(n - 1);
+  saveProgress();
+  adminPanelOpen = false;
+  adminOverlay.style.display = 'none';
+});
+adminAddCoinsBtn.addEventListener('click', () => {
+  wallet += 100;
+  walletEl.textContent = wallet;
+  saveProgress();
+});
+adminResetMineBtn.addEventListener('click', () => {
+  if (!currentUsername) return;
+  const accounts = loadAccounts();
+  delete accounts[currentUsername];
+  saveAccounts(accounts);
+  wallet = 0; speedUpgrades = 0; jumpUpgrades = 0; multLevel = 0;
+  walletEl.textContent = wallet;
+  multDisplayEl.textContent = currentMultiplier();
+  loadStage(0);
+  refreshAdminList();
+});
+adminResetOtherBtn.addEventListener('click', () => {
+  const target = adminOtherUserInput.value.trim();
+  if (!target) return;
+  const accounts = loadAccounts();
+  if (accounts[target]) {
+    delete accounts[target];
+    saveAccounts(accounts);
+    flashMessage(`Progresso de "${target}" foi resetado.`, 3000);
+  } else {
+    flashMessage(`Nenhum perfil salvo encontrado para "${target}".`, 3000);
+  }
+  adminOtherUserInput.value = '';
+  refreshAdminList();
+});
+function refreshAdminList() {
+  const accounts = loadAccounts();
+  const names = Object.keys(accounts);
+  adminListEl.textContent = names.length ? names.join(', ') : 'nenhum perfil salvo ainda.';
+}
+
 function rectsOverlap(a, b) {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
+function tryShoot() {
+  const now = performance.now();
+  if (now - lastShotTime < SHOOT_COOLDOWN_MS) return;
+  lastShotTime = now;
+  const py = player.y + player.h / 2 - PROJECTILE_H / 2;
+  const px = player.facing > 0 ? player.x + player.w : player.x - PROJECTILE_W;
+  projectiles.push({ x: px, y: py, w: PROJECTILE_W, h: PROJECTILE_H, vx: PROJECTILE_SPEED * player.facing });
+}
+
 function update() {
-  if (gameOver || win || inShop) return;
+  if (!loggedIn || win || inShop || adminPanelOpen) return;
 
   const moveSpeed = currentMoveSpeed();
   const jumpForce = currentJumpForce();
 
-  if (keys['ArrowLeft'] || keys['a'] || keys['A']) player.vx = -moveSpeed;
-  else if (keys['ArrowRight'] || keys['d'] || keys['D']) player.vx = moveSpeed;
+  if (keys['ArrowLeft'] || keys['a'] || keys['A']) { player.vx = -moveSpeed; player.facing = -1; }
+  else if (keys['ArrowRight'] || keys['d'] || keys['D']) { player.vx = moveSpeed; player.facing = 1; }
   else player.vx *= FRICTION;
 
   if ((keys['ArrowUp'] || keys['w'] || keys['W'] || keys[' ']) && player.onGround) {
     player.vy = jumpForce;
     player.onGround = false;
   }
+
+  if (keys['x'] || keys['X']) tryShoot();
 
   player.vy += GRAVITY;
 
@@ -594,19 +818,14 @@ function update() {
   for (const p of platforms) {
     if (rectsOverlap(player, p)) {
       if (player.vy > 0 && player.y + player.h - player.vy <= p.y + 1) {
-        player.y = p.y - player.h;
-        player.vy = 0;
-        player.onGround = true;
+        player.y = p.y - player.h; player.vy = 0; player.onGround = true;
       } else if (player.vy < 0 && player.y - player.vy >= p.y + p.h - 1) {
-        player.y = p.y + p.h;
-        player.vy = 0;
+        player.y = p.y + p.h; player.vy = 0;
       }
     }
   }
 
-  if (player.y > canvas.height) {
-    loseLife();
-  }
+  if (player.y > canvas.height) respawn();
 
   for (const c of coins) {
     if (!c.taken && rectsOverlap(player, { x: c.x - 10, y: c.y - 10, w: 20, h: 20 })) {
@@ -618,15 +837,28 @@ function update() {
   }
 
   for (const en of enemies) {
-    if (en.type === 'h') {
-      en.x += en.v;
-      if (en.x < en.minX || en.x + en.w > en.maxX) en.v *= -1;
-    } else {
-      en.y += en.v;
-      if (en.y < en.minY || en.y + en.h > en.maxY) en.v *= -1;
-    }
-    if (rectsOverlap(player, en)) {
-      loseLife();
+    if (en.type === 'h') { en.x += en.v; if (en.x < en.minX || en.x + en.w > en.maxX) en.v *= -1; }
+    else { en.y += en.v; if (en.y < en.minY || en.y + en.h > en.maxY) en.v *= -1; }
+    if (rectsOverlap(player, en)) respawn();
+  }
+
+  for (const g of guardians) {
+    if (g.defeated) continue;
+    if (rectsOverlap(player, g)) respawn();
+  }
+
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const pr = projectiles[i];
+    pr.x += pr.vx;
+    if (pr.x < -20 || pr.x > canvas.width + 20) { projectiles.splice(i, 1); continue; }
+    for (const g of guardians) {
+      if (g.defeated) continue;
+      if (rectsOverlap(pr, g)) {
+        g.hp -= 1;
+        projectiles.splice(i, 1);
+        if (g.hp <= 0) g.defeated = true;
+        break;
+      }
     }
   }
 
@@ -642,20 +874,14 @@ function update() {
   }
 }
 
-function loseLife() {
-  player.lives -= 1;
-  livesEl.textContent = player.lives;
-  if (player.lives <= 0) {
-    gameOver = true;
-    msgEl.textContent = '💀 Fim de jogo! Pressione R para reiniciar.';
-  } else {
-    const s = stages[currentStageIndex];
-    player.x = s.spawn.x; player.y = s.spawn.y; player.vx = 0; player.vy = 0;
-  }
+function respawn() {
+  const s = stages[currentStageIndex];
+  player.x = s.spawn.x; player.y = s.spawn.y; player.vx = 0; player.vy = 0;
 }
 
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!loggedIn) return;
 
   ctx.fillStyle = 'rgba(255,255,255,0.6)';
   ctx.beginPath();
@@ -698,6 +924,24 @@ function draw() {
     ctx.fillText(arrow, en.x + en.w / 2, en.y + en.h + 12);
   }
 
+  for (const g of guardians) {
+    if (g.defeated) continue;
+    ctx.fillStyle = '#4a4a55';
+    ctx.fillRect(g.x, g.y, g.w, g.h);
+    ctx.fillStyle = '#ff4444';
+    ctx.fillRect(g.x + 6, g.y + 8, 6, 6);
+    ctx.fillRect(g.x + g.w - 12, g.y + 8, 6, 6);
+    const barW = g.w;
+    const pct = Math.max(0, g.hp / g.maxHp);
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(g.x, g.y - 8, barW, 5);
+    ctx.fillStyle = '#4ade80';
+    ctx.fillRect(g.x, g.y - 8, barW * pct, 5);
+  }
+
+  ctx.fillStyle = '#ffe066';
+  for (const pr of projectiles) ctx.fillRect(pr.x, pr.y, pr.w, pr.h);
+
   ctx.fillStyle = '#888';
   ctx.fillRect(flag.x, flag.y, 4, flag.h);
   ctx.fillStyle = '#ffdd33';
@@ -712,11 +956,6 @@ function draw() {
   ctx.fillStyle = '#fff';
   ctx.fillRect(player.x + 6, player.y + 8, 5, 5);
   ctx.fillRect(player.x + 17, player.y + 8, 5, 5);
-
-  if (gameOver) {
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }
 }
 
 function loop() {
@@ -725,7 +964,6 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-startGame();
 loop();
 </script>
 </body>
